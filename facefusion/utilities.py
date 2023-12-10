@@ -17,7 +17,7 @@ import facefusion.globals
 from facefusion import wording
 from facefusion.vision import detect_fps
 
-TEMP_DIRECTORY_PATH = os.path.join(tempfile.gettempdir(), 'facefusion')
+TEMP_DIRECTORY_PATH = "D:\\swap\\facefusion-output\\temp"
 TEMP_OUTPUT_VIDEO_NAME = 'temp.mp4'
 
 # monkey patch ssl
@@ -70,8 +70,8 @@ def merge_video(target_path : str, fps : float) -> bool:
 	temp_frames_pattern = get_temp_frames_pattern(target_path, '%04d')
 	commands = [ '-hwaccel', 'auto', '-r', str(fps), '-i', temp_frames_pattern, '-c:v', facefusion.globals.output_video_encoder ]
 	if facefusion.globals.output_video_encoder in [ 'libx264', 'libx265' ]:
-		output_video_compression = round(51 - (facefusion.globals.output_video_quality * 0.51))
-		commands.extend([ '-crf', str(output_video_compression) ])
+		# output_video_compression = round(51 - (facefusion.globals.output_video_quality * 0.51))
+		commands.extend([ '-crf', str(17) ])
 	if facefusion.globals.output_video_encoder in [ 'libvpx-vp9' ]:
 		output_video_compression = round(63 - (facefusion.globals.output_video_quality * 0.63))
 		commands.extend([ '-crf', str(output_video_compression) ])

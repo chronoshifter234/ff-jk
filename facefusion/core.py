@@ -15,7 +15,6 @@ from argparse import ArgumentParser, HelpFormatter
 import facefusion.choices
 import facefusion.globals
 from facefusion import metadata, wording
-from facefusion.predictor import predict_image, predict_video
 from facefusion.processors.frame.core import get_frame_processors_modules, load_frame_processor_module
 from facefusion.utilities import is_image, is_video, detect_fps, compress_image, merge_video, extract_frames, get_temp_frame_paths, restore_audio, create_temp, move_temp, clear_temp, list_module_names, encode_execution_providers, decode_execution_providers, normalize_output_path
 
@@ -37,13 +36,13 @@ def cli() -> None:
 	group_misc.add_argument('--headless', help = wording.get('headless_help'), dest = 'headless', action = 'store_true')
 	# execution
 	group_execution = program.add_argument_group('execution')
-	group_execution.add_argument('--execution-providers', help = wording.get('execution_providers_help').format(choices = 'cpu'), dest = 'execution_providers', default = [ 'cpu' ], choices = encode_execution_providers(onnxruntime.get_available_providers()), nargs = '+')
-	group_execution.add_argument('--execution-thread-count', help = wording.get('execution_thread_count_help'), dest = 'execution_thread_count', type = int, default = 1)
+	group_execution.add_argument('--execution-providers', help = wording.get('execution_providers_help').format(choices = 'cpu'), dest = 'execution_providers', default = [ 'cuda' ], choices = encode_execution_providers(onnxruntime.get_available_providers()), nargs = '+')
+	group_execution.add_argument('--execution-thread-count', help = wording.get('execution_thread_count_help'), dest = 'execution_thread_count', type = int, default = 3)
 	group_execution.add_argument('--execution-queue-count', help = wording.get('execution_queue_count_help'), dest = 'execution_queue_count', type = int, default = 1)
 	group_execution.add_argument('--max-memory', help=wording.get('max_memory_help'), dest='max_memory', type = int)
 	# face recognition
 	group_face_recognition = program.add_argument_group('face recognition')
-	group_face_recognition.add_argument('--face-recognition', help = wording.get('face_recognition_help'), dest = 'face_recognition', default = 'reference', choices = facefusion.choices.face_recognitions)
+	group_face_recognition.add_argument('--face-recognition', help = wording.get('face_recognition_help'), dest = 'face_recognition', default = 'many', choices = facefusion.choices.face_recognitions)
 	group_face_recognition.add_argument('--face-analyser-direction', help = wording.get('face_analyser_direction_help'), dest = 'face_analyser_direction', default = 'left-right', choices = facefusion.choices.face_analyser_directions)
 	group_face_recognition.add_argument('--face-analyser-age', help = wording.get('face_analyser_age_help'), dest = 'face_analyser_age', choices = facefusion.choices.face_analyser_ages)
 	group_face_recognition.add_argument('--face-analyser-gender', help = wording.get('face_analyser_gender_help'), dest = 'face_analyser_gender', choices = facefusion.choices.face_analyser_genders)
@@ -59,22 +58,22 @@ def cli() -> None:
 	group_processing.add_argument('--keep-temp', help = wording.get('keep_temp_help'), dest = 'keep_temp', action = 'store_true')
 	# output creation
 	group_output = program.add_argument_group('output creation')
-	group_output.add_argument('--output-image-quality', help=wording.get('output_image_quality_help'), dest = 'output_image_quality', type = int, default = 80, choices = range(101), metavar = '[0-100]')
+	group_output.add_argument('--output-image-quality', help=wording.get('output_image_quality_help'), dest = 'output_image_quality', type = int, default = 100, choices = range(101), metavar = '[0-100]')
 	group_output.add_argument('--output-video-encoder', help = wording.get('output_video_encoder_help'), dest = 'output_video_encoder', default = 'libx264', choices = facefusion.choices.output_video_encoders)
-	group_output.add_argument('--output-video-quality', help = wording.get('output_video_quality_help'), dest = 'output_video_quality', type = int, default = 80, choices = range(101), metavar = '[0-100]')
-	group_output.add_argument('--keep-fps', help = wording.get('keep_fps_help'), dest = 'keep_fps', action = 'store_true')
+	group_output.add_argument('--output-video-quality', help = wording.get('output_video_quality_help'), dest = 'output_video_quality', type = int, default = 100, choices = range(101), metavar = '[0-100]')
+	group_output.add_argument('--keep-fps', help = wording.get('keep_fps_help'), dest = 'keep_fps', default=True, `action = 'store_true')
 	group_output.add_argument('--skip-audio', help = wording.get('skip_audio_help'), dest = 'skip_audio', action = 'store_true')
 	# frame processors
-	available_frame_processors = list_module_names('facefusion/processors/frame/modules')
+	available_frame_processors = ['face_enhancer', 'face_swapper', 'frame_enhancer']
 	program = ArgumentParser(parents = [ program ], formatter_class = program.formatter_class, add_help = True)
 	group_frame_processors = program.add_argument_group('frame processors')
-	group_frame_processors.add_argument('--frame-processors', help = wording.get('frame_processors_help').format(choices = ', '.join(available_frame_processors)), dest = 'frame_processors', default = [ 'face_swapper' ], nargs = '+')
+	group_frame_processors.add_argument('--frame-processors', dest = 'frame_processors', default = [ 'face_swapper', 'face_enhancer'], nargs = '+')
 	for frame_processor in available_frame_processors:
 		frame_processor_module = load_frame_processor_module(frame_processor)
 		frame_processor_module.register_args(group_frame_processors)
 	# uis
 	group_uis = program.add_argument_group('uis')
-	group_uis.add_argument('--ui-layouts', help = wording.get('ui_layouts_help').format(choices = ', '.join(list_module_names('facefusion/uis/layouts'))), dest = 'ui_layouts', default = [ 'default' ], nargs = '+')
+	group_uis.add_argument('--ui-layouts', dest = 'ui_layouts', default = [ 'default' ], nargs = '+')
 	run(program)
 
 
@@ -83,7 +82,7 @@ def apply_args(program : ArgumentParser) -> None:
 	# general
 	facefusion.globals.source_path = args.source_path
 	facefusion.globals.target_path = args.target_path
-	facefusion.globals.output_path = normalize_output_path(facefusion.globals.source_path, facefusion.globals.target_path, args.output_path)
+	facefusion.globals.output_path = "D:\\swap\\facefusion-output"
 	# misc
 	facefusion.globals.skip_download = args.skip_download
 	facefusion.globals.headless = args.headless
@@ -113,7 +112,7 @@ def apply_args(program : ArgumentParser) -> None:
 	facefusion.globals.keep_fps = args.keep_fps
 	facefusion.globals.skip_audio = args.skip_audio
 	# frame processors
-	available_frame_processors = list_module_names('facefusion/processors/frame/modules')
+	available_frame_processors = ['face_enhancer', 'face_swapper', 'frame_enhancer']
 	facefusion.globals.frame_processors = args.frame_processors
 	for frame_processor in available_frame_processors:
 		frame_processor_module = load_frame_processor_module(frame_processor)
@@ -190,8 +189,6 @@ def conditional_process() -> None:
 
 
 def process_image() -> None:
-	if predict_image(facefusion.globals.target_path):
-		return
 	shutil.copy2(facefusion.globals.target_path, facefusion.globals.output_path)
 	# process frame
 	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
@@ -210,8 +207,6 @@ def process_image() -> None:
 
 
 def process_video() -> None:
-	if predict_video(facefusion.globals.target_path):
-		return
 	fps = detect_fps(facefusion.globals.target_path) if facefusion.globals.keep_fps else 25.0
 	# create temp
 	update_status(wording.get('creating_temp'))
