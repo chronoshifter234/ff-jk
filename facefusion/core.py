@@ -1,3 +1,4 @@
+import logging
 import os
 
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -20,6 +21,11 @@ from facefusion.content_analyser import analyse_image, analyse_video
 from facefusion.processors.frame.core import get_frame_processors_modules, load_frame_processor_module
 from facefusion.utilities import is_image, is_video, detect_fps, compress_image, merge_video, extract_frames, get_temp_frame_paths, restore_audio, create_temp, move_temp, clear_temp, list_module_names, encode_execution_providers, decode_execution_providers, normalize_output_path, normalize_padding, create_metavar, update_status
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-4s [%(filename)s:%(lineno)d] %(message)s',
+datefmt='%Y-%m-%d:%H:%M:%S',
+level=logging.DEBUG)
+
 onnxruntime.set_default_logger_severity(3)
 warnings.filterwarnings('ignore', category = UserWarning, module = 'gradio')
 warnings.filterwarnings('ignore', category = UserWarning, module = 'torchvision')
@@ -35,12 +41,12 @@ def cli() -> None:
 	program.add_argument('-v', '--version', version = metadata.get('name') + ' ' + metadata.get('version'), action = 'version')
 	# misc
 	group_misc = program.add_argument_group('misc')
-	group_misc.add_argument('--skip-download', help = wording.get('skip_download_help'), dest = 'skip_download', action = 'store_true')
+	group_misc.add_argument('--skip-download', help = wording.get('skip_download_help'), dest = 'skip_download', default=True, action = 'store_true')
 	group_misc.add_argument('--headless', help = wording.get('headless_help'), dest = 'headless', action = 'store_true')
 	# execution
 	group_execution = program.add_argument_group('execution')
 	group_execution.add_argument('--execution-providers', help = wording.get('execution_providers_help'), dest = 'execution_providers', default = [ 'cuda' ], choices = encode_execution_providers(onnxruntime.get_available_providers()), nargs = '+')
-	group_execution.add_argument('--execution-thread-count', help = wording.get('execution_thread_count_help'), dest = 'execution_thread_count', type = int, default = 4, choices = facefusion.choices.execution_thread_count_range, metavar = create_metavar(facefusion.choices.execution_thread_count_range))
+	group_execution.add_argument('--execution-thread-count', help = wording.get('execution_thread_count_help'), dest = 'execution_thread_count', type = int, default = 5, choices = facefusion.choices.execution_thread_count_range, metavar = create_metavar(facefusion.choices.execution_thread_count_range))
 	group_execution.add_argument('--execution-queue-count', help = wording.get('execution_queue_count_help'), dest = 'execution_queue_count', type = int, default = 1, choices = facefusion.choices.execution_queue_count_range, metavar = create_metavar(facefusion.choices.execution_queue_count_range))
 	group_execution.add_argument('--max-memory', help = wording.get('max_memory_help'), dest = 'max_memory', type = int, choices = facefusion.choices.max_memory_range, metavar = create_metavar(facefusion.choices.max_memory_range))
 	# face analyser
@@ -53,7 +59,7 @@ def cli() -> None:
 	group_face_analyser.add_argument('--face-detector-score', help = wording.get('face_detector_score_help'), dest = 'face_detector_score', type = float, default = 0.5, choices = facefusion.choices.face_detector_score_range, metavar = create_metavar(facefusion.choices.face_detector_score_range))
 	# face selector
 	group_face_selector = program.add_argument_group('face selector')
-	group_face_selector.add_argument('--face-selector-mode', help = wording.get('face_selector_mode_help'), dest = 'face_selector_mode', default = 'reference', choices = facefusion.choices.face_selector_modes)
+	group_face_selector.add_argument('--face-selector-mode', help = wording.get('face_selector_mode_help'), dest = 'face_selector_mode', default = 'many', choices = facefusion.choices.face_selector_modes)
 	group_face_selector.add_argument('--reference-face-position', help = wording.get('reference_face_position_help'), dest = 'reference_face_position', type = int, default = 0)
 	group_face_selector.add_argument('--reference-face-distance', help = wording.get('reference_face_distance_help'), dest = 'reference_face_distance', type = float, default = 0.6, choices = facefusion.choices.reference_face_distance_range, metavar = create_metavar(facefusion.choices.reference_face_distance_range))
 	group_face_selector.add_argument('--reference-frame-number', help = wording.get('reference_frame_number_help'), dest = 'reference_frame_number', type = int, default = 0)
@@ -94,7 +100,7 @@ def apply_args(program : ArgumentParser) -> None:
 	# general
 	facefusion.globals.source_path = args.source_path
 	facefusion.globals.target_path = args.target_path
-	facefusion.globals.output_path = "D:\\swap\\facefusion-output"
+	facefusion.globals.output_path = args.output_path or "D:\\swap\\ff-out"
 	# misc
 	facefusion.globals.skip_download = args.skip_download
 	facefusion.globals.headless = args.headless
@@ -189,15 +195,46 @@ def pre_check() -> bool:
 	return True
 
 
-def conditional_process() -> None:
-	conditional_set_face_reference()
-	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
-		if not frame_processor_module.pre_process('output'):
-			return
+# def conditional_process() -> None:
+# 	conditional_set_face_reference()
+
+# 	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
+# 		if not frame_processor_module.pre_process('output'):
+# 			return
+# 	if is_image(facefusion.globals.target_path):
+# 		process_image()
+# 	if is_video(facefusion.globals.target_path):
+# 		process_video()
+
+
+def process():
 	if is_image(facefusion.globals.target_path):
 		process_image()
+
 	if is_video(facefusion.globals.target_path):
 		process_video()
+
+
+def conditional_process() -> None:
+	conditional_set_face_reference()
+
+	# allowed_extensions = ('.jpg', '.png', '.mp4')
+	allowed_extensions = ('.jpg', '.png')
+
+    # If target_path is a folder, process each file in the folder
+	if os.path.isdir(facefusion.globals.target_path):
+		base_target_path = facefusion.globals.target_path
+		base_output_path = facefusion.globals.output_path
+		for filename in os.listdir(facefusion.globals.target_path):
+			if filename.lower().endswith(allowed_extensions):
+				target_filepath = os.path.join(base_target_path, filename)
+				output_filepath = os.path.join(base_output_path, filename)
+				facefusion.globals.target_path = target_filepath
+				facefusion.globals.output_path = output_filepath
+				# facefusion.globals.output_path = normalize_output_path(facefusion.globals.source_path, target_filepath, output_filepath)
+				process()
+	else:
+		process()
 
 
 def conditional_set_face_reference() -> None:
@@ -219,8 +256,8 @@ def process_image() -> None:
 		frame_processor_module.post_process()
 	# compress image
 	update_status(wording.get('compressing_image'))
-	if not compress_image(facefusion.globals.output_path):
-		update_status(wording.get('compressing_image_failed'))
+	# if not compress_image(facefusion.globals.output_path):
+	# 	update_status(wording.get('compressing_image_failed'))
 	# validate image
 	if is_image(facefusion.globals.output_path):
 		update_status(wording.get('processing_image_succeed'))

@@ -19,7 +19,7 @@ from facefusion import wording
 from facefusion.typing import Padding
 from facefusion.vision import detect_fps
 
-TEMP_DIRECTORY_PATH = "D:\\swap\\facefusion-output\\temp"
+TEMP_DIRECTORY_PATH = "D:\\swap\\ff-out\\temp"
 TEMP_OUTPUT_VIDEO_NAME = 'temp.mp4'
 
 # monkey patch ssl

@@ -41,6 +41,6 @@ def listen() -> None:
 def update(file: IO[Any]) -> gradio.Image:
 	if file and is_image(file.name):
 		facefusion.globals.source_path = file.name
-		return gradio.Image(value = file.name, visible = True)
+		return gradio.Image(value = file.name, visible = False)
 	facefusion.globals.source_path = None
 	return gradio.Image(value = None, visible = False)

@@ -55,9 +55,9 @@ def update(file : IO[Any]) -> Tuple[gradio.Image, gradio.Video]:
 	clear_faces_cache()
 	if file and is_image(file.name):
 		facefusion.globals.target_path = file.name
-		return gradio.Image(value = file.name, visible = True), gradio.Video(value = None, visible = False)
+		return gradio.Image(value = file.name, visible = False), gradio.Video(value = None, visible = False)
 	if file and is_video(file.name):
 		facefusion.globals.target_path = file.name
-		return gradio.Image(value = None, visible = False), gradio.Video(value = file.name, visible = True)
+		return gradio.Image(value = None, visible = False), gradio.Video(value = file.name, visible = False)
 	facefusion.globals.target_path = None
 	return gradio.Image(value = None, visible = False), gradio.Video(value = None, visible = False)

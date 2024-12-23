@@ -132,6 +132,8 @@ def pre_process(mode : ProcessMode) -> bool:
 	model_url = get_options('model').get('url')
 	model_path = get_options('model').get('path')
 	if not facefusion.globals.skip_download and not is_download_done(model_url, model_path):
+		print(facefusion.globals.skip_download)
+		print(not facefusion.globals.skip_download)
 		update_status(wording.get('model_download_not_done') + wording.get('exclamation_mark'), NAME)
 		return False
 	elif not is_file(model_path):

@@ -7,12 +7,12 @@ source_path : Optional[str] = None
 target_path : Optional[str] = None
 output_path : Optional[str] = None
 # misc
-skip_download : Optional[bool] = None
+skip_download : Optional[bool] = True
 headless : Optional[bool] = None
 # execution
 execution_providers : List[str] = []
-execution_thread_count : Optional[int] = None
-execution_queue_count : Optional[int] = None
+execution_thread_count : Optional[int] = 5
+execution_queue_count : Optional[int] = 1
 max_memory : Optional[int] = None
 # face analyser
 face_analyser_order : Optional[FaceAnalyserOrder] = None
@@ -34,10 +34,10 @@ face_mask_padding : Optional[Padding] = None
 trim_frame_start : Optional[int] = None
 trim_frame_end : Optional[int] = None
 temp_frame_format : Optional[TempFrameFormat] = None
-temp_frame_quality : Optional[int] = None
+temp_frame_quality : Optional[int] = 100
 keep_temp : Optional[bool] = None
 # output creation
-output_image_quality : Optional[int] = None
+output_image_quality : Optional[int] = 100
 output_video_encoder : Optional[OutputVideoEncoder] = None
 output_video_quality : Optional[int] = None
 keep_fps : Optional[bool] = None
